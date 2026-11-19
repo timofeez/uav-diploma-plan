@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Флоу работы системы</title>
+<meta name="description" content="Выбор алгоритма и пошаговый флоу централизованной МАС распределения задач БПЛА с доработками прототипа">
+<style>
+:root{
+  --bg:#fbfaf7;--surface:#ffffff;--ink:#1d1f23;--ink2:#4a4f57;--muted:#7a808a;--line:#e3e1db;
+  --accent:#2f6db5;--accent-soft:#e8f0fa;--good:#2e7d4f;--good-soft:#e7f4ec;--warn:#9a6200;--warn-soft:#fbf1dd;--bad:#b23a3a;--bad-soft:#fae9e9;
+  --code:#f3f1ec;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#15171b;--surface:#1d2026;--ink:#e8e9ec;--ink2:#b9bec7;--muted:#8a909a;--line:#2f333b;
+  --accent:#7fb0ec;--accent-soft:#1f2c3d;--good:#7fcf9c;--good-soft:#1b2c22;--warn:#e8b45a;--warn-soft:#2e2615;--bad:#ef8a8a;--bad-soft:#331e1e;--code:#23262d;}}
+:root[data-theme="dark"]{
+  --bg:#15171b;--surface:#1d2026;--ink:#e8e9ec;--ink2:#b9bec7;--muted:#8a909a;--line:#2f333b;
+  --accent:#7fb0ec;--accent-soft:#1f2c3d;--good:#7fcf9c;--good-soft:#1b2c22;--warn:#e8b45a;--warn-soft:#2e2615;--bad:#ef8a8a;--bad-soft:#331e1e;--code:#23262d;}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
+main{max-width:760px;margin:0 auto;padding:20px 16px 80px}
+h1{font-size:1.65rem;line-height:1.25;margin:.4em 0 .3em}
+h2{font-size:1.3rem;line-height:1.3;margin:2.2em 0 .6em;padding-top:.6em;border-top:1px solid var(--line)}
+h3{font-size:1.05rem;margin:1.5em 0 .4em}
+p,li{color:var(--ink)}
+.lead{color:var(--ink2);font-size:1.02rem}
+.muted{color:var(--muted);font-size:.9rem}
+a{color:var(--accent)}
+ul,ol{padding-left:1.25em}
+li{margin:.25em 0}
+code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.88em;background:var(--code);padding:.1em .35em;border-radius:5px}
+pre{background:var(--code);padding:12px 14px;border-radius:10px;overflow-x:auto;font-size:.82rem;line-height:1.5}
+pre code{background:none;padding:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:14px 0}
+.say{border-left:4px solid var(--accent);background:var(--accent-soft)}
+.ok{border-left:4px solid var(--good);background:var(--good-soft)}
+.risk{border-left:4px solid var(--warn);background:var(--warn-soft)}
+.no{border-left:4px solid var(--bad);background:var(--bad-soft)}
+.tag{display:inline-block;font-size:.72rem;font-weight:600;letter-spacing:.02em;padding:.1em .5em;border-radius:99px;border:1px solid var(--line);color:var(--ink2);vertical-align:.1em}
+.tbl{overflow-x:auto;margin:12px 0}
+table{border-collapse:collapse;width:100%;font-size:.9rem;min-width:520px}
+th,td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left;vertical-align:top}
+th{color:var(--ink2);font-weight:600}
+nav.toc{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 16px;margin:16px 0}
+nav.toc ol{margin:.3em 0;padding-left:1.3em}
+nav.toc a{text-decoration:none}
+details{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin:10px 0}
+summary{cursor:pointer;font-weight:600}
+.fig{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px;margin:14px 0}
+.fig .sc{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.fig svg{width:100%;min-width:640px;height:auto;display:block}
+.hint{display:none;font-size:.8rem;color:var(--muted);padding:0 4px 6px}
+@media (max-width:640px){.hint{display:block}}
+.fig figcaption{font-size:.85rem;color:var(--muted);padding:6px 4px 0}
+svg text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+.s-box{fill:var(--surface);stroke:var(--line);stroke-width:1.5}
+.s-acc{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.5}
+.s-ok{fill:var(--good-soft);stroke:var(--good);stroke-width:1.5}
+.s-warn{fill:var(--warn-soft);stroke:var(--warn);stroke-width:1.5}
+.s-t{fill:var(--ink);font-size:13px}
+.s-tb{fill:var(--ink);font-size:13.5px;font-weight:600}
+.s-ts{fill:var(--ink2);font-size:11.5px}
+.s-ln{stroke:var(--ink2);stroke-width:1.4;fill:none}
+.s-lnd{stroke:var(--ink2);stroke-width:1.3;fill:none;stroke-dasharray:4 3}
+.s-bad{stroke:var(--bad);stroke-width:2;fill:none}
+.s-tbad{fill:var(--bad);font-size:12px;font-weight:600}
+.f{font-family:"Cambria Math","Times New Roman",serif;font-size:1.04em}
+.formula{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin:8px 0;overflow-x:auto;font-family:"Cambria Math","Times New Roman",serif;font-size:1.02rem;line-height:1.9}
+.theme{position:fixed;right:12px;bottom:12px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:99px;padding:8px 12px;font-size:.85rem}
+.fig svg.v{min-width:0;max-width:420px;margin:0 auto}
+.step{display:flex;gap:12px;align-items:flex-start}
+.num{flex:0 0 30px;height:30px;border-radius:50%;background:var(--accent);color:var(--bg);font-weight:700;display:flex;align-items:center;justify-content:center;font-size:.95rem;margin-top:2px}
+.who{font-size:.78rem;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.04em}
+.chk li{list-style:none;margin-left:-1.2em}
+</style>
+</head>
+<body>
+<main>
+<p class="muted"><a href="./">← к общему плану</a></p>
+<h1>Флоу работы системы: что выбрано и как это работает</h1>
+<p class="lead">Одна страница: какой алгоритм, почему именно он, что происходит шаг за шагом от старта до посадки и что нужно доделать в прототипе.</p>
+
+<nav class="toc"><strong>Содержание</strong>
+<ol>
+<li><a href="#choice">Выбор: CBBA или что-то другое</a></li>
+<li><a href="#roles">Кто участвует</a></li>
+<li><a href="#flow">Флоу целиком (схема)</a></li>
+<li><a href="#steps">Каждый шаг подробно</a></li>
+<li><a href="#planner">Как считает планировщик</a></li>
+<li><a href="#events">Что делать при событиях</a></li>
+<li><a href="#msgs">Формат сообщений</a></li>
+<li><a href="#todo">Доработки прототипа (по файлам)</a></li>
+<li><a href="#order">Порядок работ</a></li>
+<li><a href="#say">Как это сказать руководителю</a></li>
+</ol></nav>
+
+<h2 id="choice">1. Выбор: CBBA или что-то другое</h2>
+<div class="card ok"><strong>Решение: не CBBA.</strong> Основной алгоритм — <strong>централизованный планировщик маршрутов</strong>: жадная вставка (Solomon, 1987), затем локальный поиск (relocate, swap, 2-opt) и перепланирование по событиям. Бортовые агенты могут отказаться от задачи. CBBA остаётся только в обзоре литературы и как одна из точек сравнения.</div>
+
+<p><strong>Почему так.</strong> Вы с руководителем выбрали централизованную систему. CBBA — алгоритм для случая, когда центра нет: дроны договариваются сами через рассылку ставок. Если центр есть и видит всё, консенсус не нужен — центр сам считает лучший план. Наш прототип это подтвердил: пока центр жив, децентрализованный вариант не лучше (98,5 % против 97,6 % выполненных задач). Децентрализация выигрывает только при потере центра, а этот сценарий мы закрываем правилами для бортовых агентов (раздел 6).</p>
+
+<div class="tbl"><table>
+<tr><th>Вариант</th><th>Что это</th><th>Подходит?</th></tr>
+<tr><td><strong>CBBA</strong> (Choi и др., 2009)</td><td>Децентрализованный аукцион: каждый дрон собирает свой пакет задач, потом дроны сверяют ставки, пока не договорятся</td><td>Нет как основной: противоречит выбранной централизованной архитектуре, лишние сообщения (307 → 3916 при 5 → 15 БПЛА в наших замерах)</td></tr>
+<tr><td><strong>Венгерский алгоритм</strong> (Kuhn, 1955)</td><td>Оптимальное назначение «одна задача — один исполнитель»</td><td>Нет: у нас у дрона цепочка задач и важен порядок облёта, а венгерский алгоритм этого не учитывает</td></tr>
+<tr><td><strong>Центральный аукцион</strong> (Contract Net, Smith, 1980)</td><td>Центр объявляет задачу, дроны присылают цену, центр выбирает лучшую</td><td>Частично: по сути это та же жадная вставка, только цену считает борт. Можно взять как форму протокола</td></tr>
+<tr><td><strong>Вставка + локальный поиск</strong></td><td>Центр строит маршруты всех дронов и улучшает их</td><td><strong>Да</strong>: учитывает порядок задач и заряд, работает за миллисекунды, легко сравнить с точным решением (MILP)</td></tr>
+</table></div>
+<p class="muted">Что изменилось по сравнению с прототипом: в нём режим <code>mas</code> — это CBBA (<code>cbba.py</code>). Он остаётся как базовый вариант для сравнения, а новая основная ветка — координатор.</p>
+
+<h2 id="roles">2. Кто участвует</h2>
+<div class="tbl"><table>
+<tr><th>Агент</th><th>Где работает</th><th>Что решает сам</th></tr>
+<tr><td><strong>Агент миссии</strong></td><td>наземная станция</td><td>принимает задачи от оператора, задаёт приоритеты и срок</td></tr>
+<tr><td><strong>Координатор</strong></td><td>наземная станция</td><td>кому какие задачи и в каком порядке; когда перепланировать</td></tr>
+<tr><td><strong>Бортовой агент</strong> (по одному на БПЛА)</td><td>компаньон-компьютер рядом с PX4 (в прототипе — контейнер)</td><td>принять или отклонить назначение по заряду; как лететь; что делать при потере связи с центром; когда идти на посадку</td></tr>
+<tr><td>PX4 (автопилот)</td><td>полётный контроллер</td><td>не агент: только выполняет команды «взлететь / лететь в точку / сесть»</td></tr>
+</table></div>
+<p>Именно право бортового агента <strong>отказаться</strong> и <strong>действовать без центра</strong> делает систему мультиагентной, а не просто программой, которая раздаёт команды.</p>
+
+<h2 id="flow">3. Флоу целиком</h2>
+<figure class="fig">
+<svg class="v" viewBox="0 0 360 700" role="img" aria-label="Пошаговый флоу работы системы">
+<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0L10,5L0,10z" fill="var(--ink2)"/></marker></defs>
+<rect class="s-box" x="20" y="10" width="270" height="56" rx="10"/>
+<text class="s-tb" x="34" y="34">1. Старт</text><text class="s-ts" x="34" y="53">борта на земле шлют HELLO и STATE</text>
+<line class="s-ln" x1="155" y1="66" x2="155" y2="86" marker-end="url(#ar)"/>
+<rect class="s-box" x="20" y="88" width="270" height="56" rx="10"/>
+<text class="s-tb" x="34" y="112">2. Миссия</text><text class="s-ts" x="34" y="131">агент миссии отправляет TASK_NEW</text>
+<line class="s-ln" x1="155" y1="144" x2="155" y2="164" marker-end="url(#ar)"/>
+<rect class="s-acc" x="20" y="166" width="270" height="70" rx="10"/>
+<text class="s-tb" x="34" y="190">3. Планирование (центр)</text><text class="s-ts" x="34" y="209">вставка → relocate / swap / 2-opt</text><text class="s-ts" x="34" y="226">лимит 200 мс, версия плана v+1</text>
+<line class="s-ln" x1="155" y1="236" x2="155" y2="256" marker-end="url(#ar)"/>
+<rect class="s-box" x="20" y="258" width="270" height="56" rx="10"/>
+<text class="s-tb" x="34" y="282">4. Рассылка</text><text class="s-ts" x="34" y="301">каждому борту ASSIGN(v, маршрут)</text>
+<line class="s-ln" x1="155" y1="314" x2="155" y2="334" marker-end="url(#ar)"/>
+<rect class="s-ok" x="20" y="336" width="270" height="70" rx="10"/>
+<text class="s-tb" x="34" y="360">5. Проверка на борту</text><text class="s-ts" x="34" y="379">хватит заряда с запасом? → ACK</text><text class="s-ts" x="34" y="396">нет → REJECT(причина)</text>
+<line class="s-ln" x1="155" y1="406" x2="155" y2="426" marker-end="url(#ar)"/>
+<rect class="s-ok" x="20" y="428" width="270" height="70" rx="10"/>
+<text class="s-tb" x="34" y="452">6. Исполнение</text><text class="s-ts" x="34" y="471">полёт по маршруту, STATE раз в 1 с</text><text class="s-ts" x="34" y="488">DONE после каждой задачи</text>
+<line class="s-ln" x1="155" y1="498" x2="155" y2="518" marker-end="url(#ar)"/>
+<rect class="s-warn" x="20" y="520" width="270" height="70" rx="10"/>
+<text class="s-tb" x="34" y="544">7. Событие?</text><text class="s-ts" x="34" y="563">отказ, REJECT, новая задача,</text><text class="s-ts" x="34" y="580">перерасход заряда</text>
+<path class="s-lnd" d="M290,555 H335 V201 H292" marker-end="url(#ar)"/>
+<text class="s-ts" x="344" y="300" transform="rotate(90 344 300)">да → снова шаг 3</text>
+<line class="s-ln" x1="155" y1="590" x2="155" y2="616" marker-end="url(#ar)"/>
+<text class="s-ts" x="162" y="608">нет</text>
+<rect class="s-box" x="20" y="618" width="270" height="70" rx="10"/>
+<text class="s-tb" x="34" y="642">8. Завершение</text><text class="s-ts" x="34" y="661">все задачи DONE или невыполнимы</text><text class="s-ts" x="34" y="678">→ возврат на базу, отчёт</text>
+</svg>
+<figcaption>Синий — работа центра, зелёный — работа бортового агента, жёлтый — точка, из которой система возвращается к планированию.</figcaption>
+</figure>
+
+<h2 id="steps">4. Каждый шаг подробно</h2>
+
+<div class="card step"><div class="num">1</div><div><div class="who">Бортовые агенты → координатор</div>
+<strong>Старт.</strong> Каждый борт подключается к своему PX4 (MAVLink, порт 14540+i) и начинает слать координатору <code>STATE</code> раз в секунду: позиция, заряд, режим, номер выполняемой задачи. Координатор записывает борт в список доступных, когда пришёл первый STATE.
+<p class="muted">Уже есть в прототипе: подключение к PX4, телеметрия, UDP JSON между агентами.</p></div></div>
+
+<div class="card step"><div class="num">2</div><div><div class="who">Агент миссии → координатор</div>
+<strong>Миссия.</strong> Список задач: координаты, тип (облёт опоры, доставка груза), время работы на точке, приоритет. Задачи приходят пакетом в начале или по одной во время полёта.</div></div>
+
+<div class="card step"><div class="num">3</div><div><div class="who">Координатор</div>
+<strong>Планирование.</strong> Строит маршрут для каждого доступного борта (раздел 5). Ограничения: заряд с резервом, возврат на базу. Результат — план с номером версии <span class="f">v</span>. Задачи, которые никому не хватает заряда выполнить, помечаются «невыполнимы» и сообщаются оператору.</div></div>
+
+<div class="card step"><div class="num">4</div><div><div class="who">Координатор → бортовые агенты</div>
+<strong>Рассылка.</strong> Каждому борту — <code>ASSIGN</code> с версией и его маршрутом. Если ACK нет за 2 с, повторить (до 3 раз). Задачу, к которой борт уже летит, у него не отбирают.</div></div>
+
+<div class="card step"><div class="num">5</div><div><div class="who">Бортовой агент — его собственное решение</div>
+<strong>Проверка.</strong> Борт сам считает энергию маршрута по своей модели и фактическому заряду. Если хватает с резервом (например 20 %) — <code>ACK</code> и начало работы. Если нет — <code>REJECT</code> с причиной и оценкой, сколько задач он реально может взять. Борт принимает только план с версией больше текущей, старые повторы игнорирует.</div></div>
+
+<div class="card step"><div class="num">6</div><div><div class="who">Бортовой агент + PX4</div>
+<strong>Исполнение.</strong> Взлёт, полёт к очередной точке, работа на точке, затем <code>DONE</code>. Команда goto повторяется каждые 5 с, пока борт не долетит (это уже исправлено в прототипе). Энергия, фактически потраченная на отрезок, уходит в STATE, чтобы центр уточнял модель.</div></div>
+
+<div class="card step"><div class="num">7</div><div><div class="who">Координатор</div>
+<strong>События.</strong> Координатор следит за пятью событиями (раздел 6). Любое из них, кроме DONE, запускает пересчёт: снова шаг 3, но только для оставшихся задач и с учётом текущих позиций и зарядов.</div></div>
+
+<div class="card step"><div class="num">8</div><div><div class="who">Все</div>
+<strong>Завершение.</strong> Когда все задачи выполнены или признаны невыполнимыми, борта возвращаются и садятся. Координатор пишет отчёт: сколько выполнено, время миссии, энергия, число перепланирований и сообщений. Эти величины и есть метрики эксперимента.</div></div>
+
+<h2 id="planner">5. Как считает планировщик</h2>
+<p><strong>Цель:</strong> сначала выполнить как можно больше задач (с учётом приоритета), при равенстве — меньше суммарной энергии и времени.</p>
+<div class="formula">max Σ<sub>j</sub> w<sub>j</sub>·y<sub>j</sub> − λ·Σ<sub>k</sub> E<sub>k</sub>,&nbsp;&nbsp; при E<sub>k</sub> ≤ B<sub>k</sub> − R<sub>k</sub> для каждого БПЛА k</div>
+<p class="muted">y<sub>j</sub> = 1, если задача выполнена; w<sub>j</sub> — её приоритет; E<sub>k</sub> — энергия маршрута k вместе с возвратом; B<sub>k</sub> — текущий заряд; R<sub>k</sub> — резерв; λ — малый вес.</p>
+
+<h3>Шаг А. Жадная вставка</h3>
+<pre><code>пул = невыполненные задачи
+пока пул не пуст:
+    лучший = нет
+    для задачи j в пуле, борта k, позиции p в маршруте k:
+        если энергия(маршрут k со вставкой j в p) ≤ B_k − R_k:
+            цена = прирост энергии / w_j
+            если цена лучше — запомнить (j, k, p)
+    если лучший = нет: остаток пула → «невыполнимы», стоп
+    вставить j в маршрут k на позицию p, убрать из пула</code></pre>
+
+<h3>Шаг Б. Локальный поиск (до 200 мс)</h3>
+<ol>
+<li><strong>Relocate</strong> — перенести одну задачу к другому борту, если стало дешевле.</li>
+<li><strong>Swap</strong> — обменять две задачи между бортами.</li>
+<li><strong>2-opt</strong> — внутри маршрута развернуть отрезок, чтобы убрать пересечения.</li>
+<li><strong>Повторная вставка</strong> — попробовать вставить задачи, отброшенные на шаге А.</li>
+</ol>
+<p>Каждый ход принимается, только если план остаётся допустимым по заряду и цель улучшается. Как только время вышло, отправляется лучший найденный план.</p>
+
+<h3>Шаг В. Проверка качества</h3>
+<p>На малых примерах (2–4 БПЛА, до 15 задач) та же задача решается точно — MILP через PuLP/CBC. Разрыв «эвристика против точного решения» в процентах — главный аргумент, что алгоритм хороший.</p>
+
+<h3>Модель энергии</h3>
+<p>Энергия отрезка = мощность × время. Мощность висения берётся из теории импульса (momentum theory), мощность в полёте — из скорости. На каждый борт есть свой поправочный коэффициент: после каждого отрезка он уточняется по фактическому расходу (фактическая энергия / прогноз, сглаживание 0,3). Так центр учится, что конкретный борт «прожорливее».</p>
+
+<h2 id="events">6. Что делать при событиях</h2>
+<div class="tbl"><table>
+<tr><th>Событие</th><th>Как узнать</th><th>Что делает центр</th><th>Что делает борт</th></tr>
+<tr><td><strong>Отказ борта</strong></td><td>нет STATE 5 с</td><td>его невыполненные задачи — в пул, пересчёт для остальных</td><td>—</td></tr>
+<tr><td><strong>REJECT</strong></td><td>сообщение</td><td>запрет пары «задача — борт», пересчёт</td><td>продолжает прежний план или стоит на месте</td></tr>
+<tr><td><strong>Новая задача</strong></td><td>TASK_NEW</td><td>быстрая вставка, затем улучшение</td><td>—</td></tr>
+<tr><td><strong>Перерасход заряда</strong></td><td>факт больше прогноза на 15 %</td><td>уточнить коэффициент, пересчёт</td><td>если заряд ниже резерва — сам идёт на базу и сообщает об этом</td></tr>
+<tr><td><strong>Потеря центра</strong></td><td>нет ASSIGN или подтверждений 10 с</td><td>—</td><td>доделывает уже принятый маршрут, затем возвращается; при восстановлении связи шлёт STATE и ждёт новый план</td></tr>
+</table></div>
+<div class="card risk"><strong>Защита от «метаний».</strong> Не пересчитывать чаще раза в 3 с. Задачу, к которой борт уже летит, не отдавать другому. Новый план отправлять, только если он лучше текущего хотя бы на 5 %. Пороги подобрать экспериментом и указать в ВКР.</div>
+
+<h2 id="msgs">7. Формат сообщений</h2>
+<p>JSON по UDP, как в прототипе. В каждом сообщении есть <code>from</code>, <code>t</code> (время) и <code>seq</code> (номер для отсева повторов).</p>
+<pre><code>STATE    {"type":"STATE","from":2,"pos":[x,y,z],"bat":0.71,
+          "mode":"MISSION","task":7,"e_used":1830.5}
+TASK_NEW {"type":"TASK_NEW","tasks":[{"id":17,"pos":[x,y],
+          "dwell":20,"w":1}]}
+ASSIGN   {"type":"ASSIGN","to":2,"v":5,"route":[7,3,12]}
+ACK      {"type":"ACK","from":2,"v":5}
+REJECT   {"type":"REJECT","from":2,"v":5,"reason":"energy",
+          "max_tasks":2}
+DONE     {"type":"DONE","from":2,"task":7}</code></pre>
+
+<h2 id="todo">8. Доработки прототипа (по файлам)</h2>
+<p>Что есть сейчас: <code>agent.py</code> (бортовой агент, режимы <code>static</code> и <code>mas</code>=CBBA), <code>cbba.py</code>, <code>central.py</code> (вставка + relocate, 50 строк), <code>run_mission.py</code> и <code>series.py</code> (запуск в PX4/Gazebo, серии).</p>
+<div class="tbl"><table>
+<tr><th>Файл</th><th>Что сделать</th><th>Объём</th></tr>
+<tr><td><code>planner.py</code> (новый, из <code>central.py</code>)</td><td>цель с приоритетами и энергией; swap, 2-opt, повторная вставка; лимит времени; запрещённые пары</td><td>≈ 200 строк</td></tr>
+<tr><td><code>energy.py</code> (новый)</td><td>модель мощности висения и полёта, поправочный коэффициент на борт</td><td>≈ 60 строк</td></tr>
+<tr><td><code>coordinator.py</code> (новый)</td><td>приём STATE / DONE / REJECT / TASK_NEW, таймауты, вызов планировщика, ASSIGN с версиями и повторами, защита от метаний, лог</td><td>≈ 200 строк</td></tr>
+<tr><td><code>agent.py</code></td><td>новый режим <code>central</code>: STATE раз в 1 с, приём ASSIGN по версии, проверка заряда → ACK / REJECT, DONE, правило потери центра, возврат при низком заряде. Режимы <code>static</code> и <code>mas</code> оставить для сравнения</td><td>+ ≈ 100 строк</td></tr>
+<tr><td><code>milp.py</code> (новый)</td><td>точная постановка (PuLP / CBC) для малых примеров</td><td>≈ 100 строк</td></tr>
+<tr><td><code>run_mission.py</code>, <code>series.py</code></td><td>запуск контейнера координатора; сценарии: отказ борта, новая задача посреди миссии, потеря центра; метрики: % задач, время, энергия, сообщения, число пересчётов</td><td>+ ≈ 80 строк</td></tr>
+<tr><td><code>tests/</code></td><td>планировщик на маленьких примерах: допустимость по заряду, нет дублей, сравнение с MILP</td><td>≈ 100 строк</td></tr>
+</table></div>
+<p class="muted">Объёмы — ориентир, не замер. Инфраструктура PX4 + Gazebo + Docker уже работает и переиспользуется без изменений.</p>
+
+<h2 id="order">9. Порядок работ</h2>
+<ol>
+<li><strong>Планировщик без симулятора.</strong> <code>planner.py</code> + <code>energy.py</code> + тесты на случайных примерах. Готово, когда тесты проходят.</li>
+<li><strong>Эталон.</strong> <code>milp.py</code>, таблица «разрыв и время счёта» на 20–30 малых примерах.</li>
+<li><strong>Координатор в Python-симуляции</strong> (без PX4): все пять событий, проверка протокола. Быстро гонять сотни прогонов.</li>
+<li><strong>Связка с PX4 / Gazebo.</strong> Режим <code>central</code> в <code>agent.py</code>, контейнер координатора, 5–10 прогонов на тех же сценах, что и раньше.</li>
+<li><strong>Эксперимент.</strong> Сравнение: статический план, ближайшая задача, зоны, CBBA, наш координатор. Доверительные интервалы bootstrap на парных прогонах (как уже делали).</li>
+<li><strong>Текст ВКР</strong> по результатам.</li>
+</ol>
+
+<h2 id="say">10. Как это сказать руководителю</h2>
+<div class="card say">«Распределение делает центральный координатор: он строит маршруты жадной вставкой и улучшает их локальным поиском, а при отказе дрона, новой задаче или перерасходе заряда пересчитывает план. Дроны — автономные агенты: проверяют назначение по своему заряду, могут отказаться и знают, что делать без связи с центром. CBBA я разобрал и запускал в прототипе: пока центр жив, он не даёт выигрыша, поэтому он остаётся в работе как вариант для сравнения. Качество алгоритма проверю против точного решения на малых задачах.»</div>
+<p><strong>Что уточнить у руководителя:</strong></p>
+<ul>
+<li>Тип задач: облёт опор или доставка груза (для доставки добавится грузоподъёмность борта — это одно ограничение в планировщике).</li>
+<li>Нужно ли сравнение с CBBA в экспериментальной главе или достаточно упоминания в обзоре.</li>
+<li>Достаточно ли симуляции PX4 / Gazebo или нужен полёт на реальном железе.</li>
+</ul>
+<p class="muted">Источники и цифры — на <a href="./#refs">главной странице</a>.</p>
+</main>
+<button class="theme" id="tt" type="button" aria-label="Сменить тему">◐ тема</button>
+<script>
+(function(){var r=document.documentElement,b=document.getElementById('tt');
+try{var s=localStorage.getItem('theme');if(s)r.setAttribute('data-theme',s);}catch(e){}
+b.addEventListener('click',function(){var d=r.getAttribute('data-theme');
+var dark=d?d==='dark':matchMedia('(prefers-color-scheme: dark)').matches;var n=dark?'light':'dark';
+r.setAttribute('data-theme',n);try{localStorage.setItem('theme',n);}catch(e){}});})();
+</script>
+</body>
+</html>
