@@ -88,6 +88,9 @@ svg text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sa
 <li><a href="#roles">Кто участвует</a></li>
 <li><a href="#flow">Флоу целиком (схема)</a></li>
 <li><a href="#steps">Каждый шаг подробно</a></li>
+<li><a href="#example">Пример миссии по секундам</a></li>
+<li><a href="#fsm">Состояния агентов</a></li>
+<li><a href="#code">Код для понимания</a></li>
 <li><a href="#planner">Как считает планировщик</a></li>
 <li><a href="#events">Что делать при событиях</a></li>
 <li><a href="#msgs">Формат сообщений</a></li>
@@ -180,6 +183,223 @@ svg text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sa
 
 <div class="card step"><div class="num">8</div><div><div class="who">Все</div>
 <strong>Завершение.</strong> Когда все задачи выполнены или признаны невыполнимыми, борта возвращаются и садятся. Координатор пишет отчёт: сколько выполнено, время миссии, энергия, число перепланирований и сообщений. Эти величины и есть метрики эксперимента.</div></div>
+
+<h2 id="example">4а. Пример миссии от начала до конца</h2>
+<p>Ниже условный пример, а не результат прогона: цифры подобраны для иллюстрации. 3 дрона (A, B, C), 9 опор, база в точке (0, 0). Резерв заряда — 20 %.</p>
+<div class="tbl"><table>
+<tr><th>Время</th><th>Что происходит</th><th>Сообщения</th></tr>
+<tr><td>0 с</td><td>Агенты A, B, C запущены и подключились к своим PX4. Координатор получает от каждого STATE (заряд 100 %, на земле) и заносит их в таблицу бортов.</td><td><code>STATE</code> ×3 каждую секунду</td></tr>
+<tr><td>2 с</td><td>Агент миссии присылает 9 задач. Координатор вызывает планировщик: вставка даёт A = [1, 4, 7], B = [2, 5, 8], C = [3, 6, 9]; локальный поиск переносит 7 от A к C (так короче). План версии 1.</td><td><code>TASK_NEW</code>, <code>ASSIGN v=1</code> ×3</td></tr>
+<tr><td>2,1 с</td><td>Каждый борт считает энергию своего маршрута. A и B укладываются, C с четырьмя задачами — тоже (прогноз 61 % из доступных 80 %). Все трое отвечают ACK и взлетают.</td><td><code>ACK v=1</code> ×3</td></tr>
+<tr><td>40–150 с</td><td>Полёт. После каждой опоры борт шлёт DONE. Центр отмечает задачу выполненной и сравнивает фактический расход с прогнозом, чтобы уточнить коэффициент борта.</td><td><code>DONE</code>, <code>STATE</code></td></tr>
+<tr><td>160 с</td><td>B перестал присылать STATE (отказ). Через 5 с тишины центр объявляет B потерянным. Невыполненные задачи B (5 и 8) возвращаются в пул.</td><td>— (тишина)</td></tr>
+<tr><td>165 с</td><td>Пересчёт для A и C из их текущих позиций и зарядов. Задачу, к которой каждый уже летит, не трогаем. Итог: A получает 5, а 8 не влезает ни к кому по заряду — она помечается «невыполнима». План версии 2.</td><td><code>ASSIGN v=2</code> ×2</td></tr>
+<tr><td>165,1 с</td><td>A проверяет новый маршрут и отвечает ACK. C отвечает REJECT: по его собственной модели заряда не хватит. Центр запрещает пару «C — задача», пересчитывает и шлёт план версии 3.</td><td><code>ACK</code>, <code>REJECT</code>, <code>ASSIGN v=3</code></td></tr>
+<tr><td>≈ 300 с</td><td>A и C закончили, вернулись и сели. Отчёт: 8 из 9 задач, одна невыполнима, 3 версии плана, сколько сообщений и энергии.</td><td>последние <code>DONE</code></td></tr>
+</table></div>
+
+<h2 id="fsm">4б. Состояния агентов</h2>
+<p>Оба агента — конечные автоматы. Так их удобно и программировать, и рисовать в ВКР.</p>
+<h3>Бортовой агент</h3>
+<div class="tbl"><table>
+<tr><th>Состояние</th><th>Что делает</th><th>Переходы</th></tr>
+<tr><td><code>IDLE</code></td><td>на земле, шлёт STATE, ждёт план</td><td>ASSIGN и проверка прошла → <code>EXECUTE</code>; не прошла → REJECT, остаётся в <code>IDLE</code></td></tr>
+<tr><td><code>EXECUTE</code></td><td>летит к очередной задаче, работает на точке, шлёт DONE</td><td>маршрут кончился → <code>RETURN</code>; новый ASSIGN → проверка, при успехе меняет хвост маршрута; заряд ниже резерва → <code>RETURN</code>; нет связи 10 с → <code>AUTONOMOUS</code></td></tr>
+<tr><td><code>AUTONOMOUS</code></td><td>центра нет: доделывает уже принятый маршрут</td><td>связь вернулась → шлёт STATE, назад в <code>EXECUTE</code>; маршрут кончился → <code>RETURN</code></td></tr>
+<tr><td><code>RETURN</code></td><td>летит на базу и садится</td><td>сел → <code>LANDED</code>; на земле может снова стать <code>IDLE</code>, если пришёл новый план и заряда хватает</td></tr>
+</table></div>
+<h3>Координатор</h3>
+<div class="tbl"><table>
+<tr><th>Состояние</th><th>Что делает</th><th>Переходы</th></tr>
+<tr><td><code>COLLECT</code></td><td>собирает STATE, ждёт задачи</td><td>есть задачи и борта → <code>PLAN</code></td></tr>
+<tr><td><code>PLAN</code></td><td>считает план (≤ 200 мс), версия +1</td><td>→ <code>DISPATCH</code></td></tr>
+<tr><td><code>DISPATCH</code></td><td>шлёт ASSIGN, ждёт ACK, повторяет до 3 раз</td><td>все ответили → <code>MONITOR</code>; REJECT → <code>PLAN</code></td></tr>
+<tr><td><code>MONITOR</code></td><td>принимает STATE/DONE, следит за таймаутами</td><td>событие → <code>PLAN</code> (не чаще раза в 3 с); всё выполнено → <code>FINISH</code></td></tr>
+</table></div>
+
+<h2 id="code">4в. Код для понимания</h2>
+<div class="card risk">Это <strong>набросок</strong>, чтобы было видно устройство. Его ещё не запускали, имена и детали будут меняться при реализации.</div>
+
+<h3>Данные</h3>
+<pre><code>from dataclasses import dataclass, field
+
+@dataclass
+class Task:
+    id: int
+    x: float
+    y: float
+    dwell: float = 20.0      # секунд работы на точке
+    w: float = 1.0           # приоритет
+
+@dataclass
+class Drone:
+    id: int
+    x: float
+    y: float
+    battery_j: float         # оставшаяся энергия, Дж
+    reserve_j: float         # резерв, который нельзя тратить
+    k: float = 1.0           # поправка модели энергии для этого борта
+    alive: bool = True
+    last_seen: float = 0.0
+    route: list = field(default_factory=list)   # id задач по порядку</code></pre>
+
+<h3>Энергия маршрута (<code>energy.py</code>)</h3>
+<pre><code>import math
+
+V = 8.0                      # крейсерская скорость, м/с
+P_FLY, P_HOVER = 450.0, 400.0   # Вт; в работе брать из теории импульса
+
+def route_energy(d, route, tasks, base=(0.0, 0.0)):
+    """Энергия облёта задач по порядку и возврата на базу."""
+    e, x, y = 0.0, d.x, d.y
+    for tid in route:
+        t = tasks[tid]
+        dist = math.hypot(t.x - x, t.y - y)
+        e += P_FLY * dist / V + P_HOVER * t.dwell
+        x, y = t.x, t.y
+    e += P_FLY * math.hypot(base[0] - x, base[1] - y) / V
+    return d.k * e
+
+def feasible(d, route, tasks):
+    return route_energy(d, route, tasks) &lt;= d.battery_j - d.reserve_j</code></pre>
+
+<h3>Планировщик: жадная вставка (<code>planner.py</code>)</h3>
+<pre><code>def greedy_insert(drones, pool, tasks, banned=frozenset(), locked=frozenset()):
+    """pool — id нераспределённых задач. Меняет маршруты на месте,
+    возвращает задачи, которые никому не по силам."""
+    pool = set(pool)
+    while pool:
+        best = None                          # (цена, задача, борт, позиция)
+        for tid in pool:
+            for d in drones:
+                if not d.alive or (tid, d.id) in banned:
+                    continue
+                base_e = route_energy(d, d.route, tasks)
+                first = 1 if d.route and d.route[0] in locked else 0
+                for p in range(first, len(d.route) + 1):   # не вставлять перед текущей
+                    r = d.route[:p] + [tid] + d.route[p:]
+                    if not feasible(d, r, tasks):
+                        continue
+                    cost = (route_energy(d, r, tasks) - base_e) / tasks[tid].w
+                    if best is None or cost &lt; best[0]:
+                        best = (cost, tid, d, p)
+        if best is None:
+            break                            # остаток невыполним
+        _, tid, d, p = best
+        d.route.insert(p, tid)
+        pool.remove(tid)
+    return pool</code></pre>
+
+<h3>Улучшение: relocate и 2-opt</h3>
+<pre><code>def total(drones, tasks):
+    return sum(route_energy(d, d.route, tasks) for d in drones if d.alive)
+
+def relocate(drones, tasks, locked):
+    """Перенести одну задачу к другому борту, если стало дешевле.
+    locked — задачи, к которым борт уже летит: их не трогаем."""
+    for a in drones:
+        for i, tid in enumerate(a.route):
+            if tid in locked:
+                continue
+            for b in drones:
+                if b is a or not b.alive:
+                    continue
+                first = 1 if b.route and b.route[0] in locked else 0
+                for p in range(first, len(b.route) + 1):
+                    ra = a.route[:i] + a.route[i + 1:]
+                    rb = b.route[:p] + [tid] + b.route[p:]
+                    old = route_energy(a, a.route, tasks) + route_energy(b, b.route, tasks)
+                    new = route_energy(a, ra, tasks) + route_energy(b, rb, tasks)
+                    if new &lt; old - 1e-6 and feasible(b, rb, tasks):
+                        a.route, b.route = ra, rb
+                        return True          # нашли улучшение
+    return False
+
+def two_opt(d, tasks, start=1):
+    """Развернуть отрезок маршрута, если путь короче. start=1:
+    первую задачу (уже летим) не трогаем."""
+    improved = True
+    while improved:
+        improved = False
+        for i in range(start, len(d.route) - 1):
+            for j in range(i + 1, len(d.route)):
+                r = d.route[:i] + d.route[i:j + 1][::-1] + d.route[j + 1:]
+                if route_energy(d, r, tasks) &lt; route_energy(d, d.route, tasks) - 1e-6:
+                    d.route, improved = r, True
+
+def plan(drones, pool, tasks, banned, locked, budget=0.2):
+    import time
+    t0 = time.time()
+    left = greedy_insert(drones, pool, tasks, banned, locked)
+    while time.time() - t0 &lt; budget and relocate(drones, tasks, locked):
+        pass
+    for d in drones:
+        two_opt(d, tasks)
+    left = greedy_insert(drones, left, tasks, banned, locked)   # вдруг теперь влезет
+    return left</code></pre>
+
+<h3>Цикл координатора (<code>coordinator.py</code>)</h3>
+<pre><code>TIMEOUT, MIN_GAP = 5.0, 3.0
+
+def loop(sock, drones, tasks):
+    version, done, banned = 0, set(), set()
+    need_plan, last_plan = True, 0.0
+    while True:
+        msg = recv(sock, timeout=0.2)          # JSON по UDP или None
+        now = time.time()
+        if msg:
+            d = drones[msg["from"]]
+            d.last_seen = now
+            if msg["type"] == "STATE":
+                d.x, d.y = msg["pos"][:2]
+                d.battery_j = msg["bat_j"]
+            elif msg["type"] == "DONE":
+                done.add(msg["task"])
+                d.route.remove(msg["task"])
+            elif msg["type"] == "REJECT":
+                banned |= {(t, d.id) for t in d.route[1:]}
+                need_plan = True
+            elif msg["type"] == "TASK_NEW":
+                tasks.update({t["id"]: Task(**t) for t in msg["tasks"]})
+                need_plan = True
+        for d in drones.values():               # обнаружение отказа
+            if d.alive and now - d.last_seen &gt; TIMEOUT:
+                d.alive, need_plan = False, True
+        if need_plan and now - last_plan &gt;= MIN_GAP:
+            locked = {d.route[0] for d in drones.values() if d.alive and d.route}
+            for d in drones.values():           # в пул всё, кроме текущих
+                d.route = d.route[:1] if d.alive else []
+            pool = set(tasks) - done - locked
+            left = plan(list(drones.values()), pool, tasks, banned, locked)
+            version += 1
+            for d in drones.values():
+                if d.alive:
+                    send(sock, d.id, {"type": "ASSIGN", "v": version, "route": d.route})
+            log("plan", v=version, unassigned=sorted(left))
+            need_plan, last_plan = False, now</code></pre>
+<p class="muted">Упрощено: в настоящем коде нужно ждать ACK с повтором, хранить последний подтверждённый план и не пересчитывать, если новый план лучше старого меньше чем на 5 %.</p>
+
+<h3>Обработка ASSIGN на борту (в <code>agent.py</code>)</h3>
+<pre><code>def on_assign(me, msg, tasks):
+    if msg["v"] &lt;= me.plan_version:
+        return                                  # старый или повторный план
+    if not feasible(me.drone, msg["route"], tasks):   # своя модель и свой заряд
+        send_center({"type": "REJECT", "from": me.id, "v": msg["v"],
+                     "reason": "energy"})
+        return
+    me.plan_version = msg["v"]
+    me.drone.route = msg["route"]
+    send_center({"type": "ACK", "from": me.id, "v": msg["v"]})
+    if me.state == "IDLE":
+        me.state = "EXECUTE"                    # дальше takeoff и goto, как сейчас
+
+def tick(me, now):                              # вызывается раз в 0,2 с
+    send_center_every(1.0, state_msg(me))
+    if me.state == "EXECUTE" and now - me.last_center &gt; 10:
+        me.state = "AUTONOMOUS"                 # доделываем принятый маршрут
+    if me.drone.battery_j &lt; me.drone.reserve_j:
+        me.state = "RETURN"                     # своё решение, без центра
+        rtl()</code></pre>
 
 <h2 id="planner">5. Как считает планировщик</h2>
 <p><strong>Цель:</strong> сначала выполнить как можно больше задач (с учётом приоритета), при равенстве — меньше суммарной энергии и времени.</p>
