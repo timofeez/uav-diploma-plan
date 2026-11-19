@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>План ВКР: архитектура МАС</title>
+<meta name="description" content="Архитектура, теория и алгоритм централизованной мультиагентной системы распределения задач группы БПЛА">
+<style>
+:root{
+  --bg:#fbfaf7;--surface:#ffffff;--ink:#1d1f23;--ink2:#4a4f57;--muted:#7a808a;--line:#e3e1db;
+  --accent:#2f6db5;--accent-soft:#e8f0fa;--good:#2e7d4f;--good-soft:#e7f4ec;--warn:#9a6200;--warn-soft:#fbf1dd;--bad:#b23a3a;--bad-soft:#fae9e9;
+  --code:#f3f1ec;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#15171b;--surface:#1d2026;--ink:#e8e9ec;--ink2:#b9bec7;--muted:#8a909a;--line:#2f333b;
+  --accent:#7fb0ec;--accent-soft:#1f2c3d;--good:#7fcf9c;--good-soft:#1b2c22;--warn:#e8b45a;--warn-soft:#2e2615;--bad:#ef8a8a;--bad-soft:#331e1e;--code:#23262d;}}
+:root[data-theme="dark"]{
+  --bg:#15171b;--surface:#1d2026;--ink:#e8e9ec;--ink2:#b9bec7;--muted:#8a909a;--line:#2f333b;
+  --accent:#7fb0ec;--accent-soft:#1f2c3d;--good:#7fcf9c;--good-soft:#1b2c22;--warn:#e8b45a;--warn-soft:#2e2615;--bad:#ef8a8a;--bad-soft:#331e1e;--code:#23262d;}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
+main{max-width:760px;margin:0 auto;padding:20px 16px 80px}
+h1{font-size:1.65rem;line-height:1.25;margin:.4em 0 .3em}
+h2{font-size:1.3rem;line-height:1.3;margin:2.2em 0 .6em;padding-top:.6em;border-top:1px solid var(--line)}
+h3{font-size:1.05rem;margin:1.5em 0 .4em}
+p,li{color:var(--ink)}
+.lead{color:var(--ink2);font-size:1.02rem}
+.muted{color:var(--muted);font-size:.9rem}
+a{color:var(--accent)}
+ul,ol{padding-left:1.25em}
+li{margin:.25em 0}
+code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.88em;background:var(--code);padding:.1em .35em;border-radius:5px}
+pre{background:var(--code);padding:12px 14px;border-radius:10px;overflow-x:auto;font-size:.82rem;line-height:1.5}
+pre code{background:none;padding:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:14px 0}
+.say{border-left:4px solid var(--accent);background:var(--accent-soft)}
+.ok{border-left:4px solid var(--good);background:var(--good-soft)}
+.risk{border-left:4px solid var(--warn);background:var(--warn-soft)}
+.no{border-left:4px solid var(--bad);background:var(--bad-soft)}
+.tag{display:inline-block;font-size:.72rem;font-weight:600;letter-spacing:.02em;padding:.1em .5em;border-radius:99px;border:1px solid var(--line);color:var(--ink2);vertical-align:.1em}
+.tbl{overflow-x:auto;margin:12px 0}
+table{border-collapse:collapse;width:100%;font-size:.9rem;min-width:520px}
+th,td{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left;vertical-align:top}
+th{color:var(--ink2);font-weight:600}
+nav.toc{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 16px;margin:16px 0}
+nav.toc ol{margin:.3em 0;padding-left:1.3em}
+nav.toc a{text-decoration:none}
+details{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin:10px 0}
+summary{cursor:pointer;font-weight:600}
+.fig{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px;margin:14px 0}
+.fig svg{width:100%;height:auto;display:block}
+.fig figcaption{font-size:.85rem;color:var(--muted);padding:6px 4px 0}
+svg text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+.s-box{fill:var(--surface);stroke:var(--line);stroke-width:1.5}
+.s-acc{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.5}
+.s-ok{fill:var(--good-soft);stroke:var(--good);stroke-width:1.5}
+.s-warn{fill:var(--warn-soft);stroke:var(--warn);stroke-width:1.5}
+.s-t{fill:var(--ink);font-size:13px}
+.s-tb{fill:var(--ink);font-size:13.5px;font-weight:600}
+.s-ts{fill:var(--ink2);font-size:11.5px}
+.s-ln{stroke:var(--ink2);stroke-width:1.4;fill:none}
+.s-lnd{stroke:var(--ink2);stroke-width:1.3;fill:none;stroke-dasharray:4 3}
+.s-bad{stroke:var(--bad);stroke-width:2;fill:none}
+.s-tbad{fill:var(--bad);font-size:12px;font-weight:600}
+.f{font-family:"Cambria Math","Times New Roman",serif;font-size:1.04em}
+.formula{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin:8px 0;overflow-x:auto;font-family:"Cambria Math","Times New Roman",serif;font-size:1.02rem;line-height:1.9}
+.theme{position:fixed;right:12px;bottom:12px;background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:99px;padding:8px 12px;font-size:.85rem}
+</style>
+</head>
+<body>
+<main>
+<p class="muted">Подготовка к встрече с руководителем ВКР</p>
+<h1>Централизованная мультиагентная система распределения задач группы БПЛА</h1>
+<p class="lead">Архитектура, постановка задачи, алгоритм, теория и план кода. Решение принято: распределяет центр, исполняют автономные агенты. Тема про мультиагентную систему сохраняется.</p>
+
+<nav class="toc"><strong>Содержание</strong>
+<ol>
+<li><a href="#pitch">Что сказать за 1 минуту</a></li>
+<li><a href="#mas">Почему это МАС, если центр</a></li>
+<li><a href="#arch">Архитектура (схема)</a></li>
+<li><a href="#agents">Агенты и их полномочия</a></li>
+<li><a href="#proto">Протокол и сценарий отказа</a></li>
+<li><a href="#model">Математическая постановка</a></li>
+<li><a href="#algo">Алгоритм</a></li>
+<li><a href="#energy">Модель энергии</a></li>
+<li><a href="#theory">Теория для ответов на вопросы</a></li>
+<li><a href="#exp">Эксперимент: было / стало</a></li>
+<li><a href="#done">Что уже сделано</a></li>
+<li><a href="#code">Стек и план кода</a></li>
+<li><a href="#questions">Вопросы руководителю</a></li>
+<li><a href="#qa">Каверзные вопросы и ответы</a></li>
+<li><a href="#refs">Источники</a></li>
+</ol></nav>
+
+<h2 id="pitch">1. Что сказать за 1 минуту</h2>
+<div class="card say">
+<p><strong>«Я делаю систему, в которой наземный агент-координатор строит и пересчитывает маршруты для группы БПЛА, а бортовые агенты автономно их исполняют: проверяют заряд, могут отказаться от задачи, сами реагируют на сбои и потерю связи.</strong></p>
+<p>Задача распределения сводится к маршрутизации группы с ограничением по энергии. Решаю её жадной вставкой с локальным поиском и пересчитываю план по событиям: отказ аппарата, перерасход заряда, новая задача. Качество эвристики проверяю против точного решения на малых примерах.</p>
+<p>Стенд уже есть: PX4 + Gazebo, 4 дрона, реальные опоры ЛЭП из OpenStreetMap. Сравнивать буду со статическим планом и простым диспетчером.»</p>
+</div>
+<p>Что показать: схему из раздела 3, постановку из раздела 6, таблицу «было / стало» из раздела 10 и стенд (видео из Gazebo есть на ноутбуке).</p>
+
+<h2 id="mas">2. Почему это МАС, если распределяет центр</h2>
+<p>Мультиагентная система не обязана быть децентрализованной. Агентами систему делают свойства её участников, а не отсутствие центра.</p>
+<div class="card">
+<p><strong>Слабое определение агента (Wooldridge &amp; Jennings, 1995)</strong> — четыре свойства:</p>
+<ul>
+<li><strong>Автономность</strong> — действует без прямого управления человеком, контролирует своё состояние.</li>
+<li><strong>Реактивность</strong> — воспринимает среду и вовремя реагирует на изменения.</li>
+<li><strong>Проактивность</strong> — сам проявляет инициативу ради цели.</li>
+<li><strong>Социальность</strong> — взаимодействует с другими агентами на языке сообщений.</li>
+</ul>
+<p>Бортовой агент в этой системе обладает всеми четырьмя: он сам решает, безопасно ли брать задачу, реагирует на заряд и связь, возвращается по своим правилам и обменивается сообщениями с координатором.</p>
+</div>
+<p><strong>Тип координации:</strong> иерархическая, «менеджер — исполнители». Это классическая схема МАС; ближайший протокол — Contract Net (Smith, 1980), где менеджер распределяет работу, а исполнители могут принять или отклонить её.</p>
+<div class="card say"><strong>Формула для защиты:</strong> «Централизованное принятие решений о распределении задач, децентрализованное исполнение». Центр знает всё и планирует оптимально, агенты автономны в исполнении и безопасности.</div>
+<p><strong>Почему выбран центр, а не децентрализованный аукцион.</strong> При исправной связи центр видит всю картину и строит план лучше. Это подтверждают и мои прогоны, и литература:</p>
+<div class="tbl"><table>
+<tr><th>Источник</th><th>Сценарий</th><th>Центр</th><th>CBBA (децентр.)</th></tr>
+<tr><td>Мой прототип, 3D-модель, 100 прогонов</td><td>отказ дрона, центр жив</td><td>98,5 % задач</td><td>97,6 % задач, дольше на 0,8 мин</td></tr>
+<tr><td>Cong и др., Drones 2026</td><td>10 БПЛА, 50 задач</td><td>0,964 задач, энергия 1048,5</td><td>0,907 задач, энергия 1172,8</td></tr>
+<tr><td>Cong и др., Drones 2026</td><td>отказы 2 из 10 БПЛА</td><td>0,848</td><td>0,761</td></tr>
+<tr><td>Song и др., Drones 2025</td><td>динамика, средняя нагрузка</td><td>0,81</td><td>0,48</td></tr>
+</table></div>
+<p class="muted">Децентрализация выигрывала у меня только при одновременной потере центра (97,6 % против 92,8 %). Поэтому поведение агентов при потере центра стоит сделать частью архитектуры, а не отдельной темой.</p>
+
+<h2 id="arch">3. Архитектура</h2>
+<figure class="fig">
+<svg viewBox="0 0 720 640" role="img" aria-label="Схема архитектуры: агент миссии, координатор, сеть, бортовые агенты, автопилот PX4, Gazebo и внешние данные">
+<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor" style="color:var(--ink2)"/></marker></defs>
+<!-- level labels -->
+<text x="10" y="22" class="s-ts">НАЗЕМНЫЙ СЕГМЕНТ</text>
+<text x="10" y="372" class="s-ts">БОРТ (на каждом БПЛА)</text>
+<text x="10" y="572" class="s-ts">СИМУЛЯЦИЯ / РЕАЛЬНЫЙ МИР</text>
+<!-- external data -->
+<rect x="520" y="34" width="190" height="76" rx="10" class="s-box"/>
+<text x="535" y="58" class="s-tb">Внешние данные</text>
+<text x="535" y="78" class="s-ts">OSM: опоры ЛЭП</text>
+<text x="535" y="96" class="s-ts">Open-Meteo: ветер</text>
+<!-- mission agent -->
+<rect x="20" y="34" width="210" height="76" rx="10" class="s-box"/>
+<text x="35" y="58" class="s-tb">Агент миссии</text>
+<text x="35" y="78" class="s-ts">оператор: задачи,</text>
+<text x="35" y="96" class="s-ts">приоритеты, сроки</text>
+<!-- coordinator -->
+<rect x="20" y="130" width="690" height="200" rx="12" class="s-acc"/>
+<text x="35" y="154" class="s-tb">Агент-координатор (наземная станция)</text>
+<rect x="35" y="168" width="200" height="66" rx="8" class="s-box"/>
+<text x="47" y="190" class="s-tb">Модель мира</text>
+<text x="47" y="208" class="s-ts">состояния БПЛА, задачи,</text>
+<text x="47" y="224" class="s-ts">карта, ветер</text>
+<rect x="255" y="168" width="215" height="66" rx="8" class="s-box"/>
+<text x="267" y="190" class="s-tb">Планировщик</text>
+<text x="267" y="208" class="s-ts">вставка + локальный поиск</text>
+<text x="267" y="224" class="s-ts">эталон: MILP / OR-Tools</text>
+<rect x="490" y="168" width="205" height="66" rx="8" class="s-box"/>
+<text x="502" y="190" class="s-tb">Монитор событий</text>
+<text x="502" y="208" class="s-ts">таймауты, перерасход,</text>
+<text x="502" y="224" class="s-ts">отказы, новые задачи</text>
+<rect x="35" y="250" width="200" height="66" rx="8" class="s-box"/>
+<text x="47" y="272" class="s-tb">Модель энергии</text>
+<text x="47" y="290" class="s-ts">прогноз + уточнение</text>
+<text x="47" y="306" class="s-ts">по факту расхода</text>
+<rect x="255" y="250" width="215" height="66" rx="8" class="s-box"/>
+<text x="267" y="272" class="s-tb">Диспетчер плана</text>
+<text x="267" y="290" class="s-ts">версии плана, рассылка,</text>
+<text x="267" y="306" class="s-ts">подтверждения</text>
+<rect x="490" y="250" width="205" height="66" rx="8" class="s-box"/>
+<text x="502" y="272" class="s-tb">Журнал и метрики</text>
+<text x="502" y="290" class="s-ts">события, время,</text>
+<text x="502" y="306" class="s-ts">энергия, доля задач</text>
+<!-- internal arrows -->
+<path d="M235 201 H253" class="s-ln" marker-end="url(#ar)"/>
+<path d="M490 201 H472" class="s-ln" marker-end="url(#ar)"/>
+<path d="M362 234 V248" class="s-ln" marker-end="url(#ar)"/>
+<path d="M235 283 H253" class="s-ln" marker-end="url(#ar)"/>
+<!-- external arrows -->
+<path d="M125 110 V128" class="s-ln" marker-end="url(#ar)"/>
+<path d="M615 110 V128" class="s-ln" marker-end="url(#ar)"/>
+<!-- network -->
+<rect x="20" y="342" width="690" height="20" rx="6" class="s-warn"/>
+<text x="250" y="356" class="s-ts">радиоканал: UDP / JSON (позже можно ROS 2 / DDS)</text>
+<path d="M362 316 V340" class="s-ln" marker-end="url(#ar)"/>
+<path d="M600 340 V318" class="s-ln" marker-end="url(#ar)"/>
+<text x="372" y="334" class="s-ts">ASSIGN</text>
+<text x="610" y="334" class="s-ts">STATE, DONE, REJECT</text>
+<!-- onboard agents -->
+<g>
+<rect x="20" y="382" width="215" height="170" rx="12" class="s-ok"/>
+<text x="35" y="406" class="s-tb">Бортовой агент БПЛА 1</text>
+<text x="35" y="428" class="s-ts">• исполнитель маршрута</text>
+<text x="35" y="446" class="s-ts">• проверка заряда, отказ</text>
+<text x="35" y="464" class="s-ts">• контроль здоровья</text>
+<text x="35" y="482" class="s-ts">• правила при потере</text>
+<text x="35" y="498" class="s-ts">  связи с центром</text>
+<rect x="35" y="510" width="185" height="30" rx="7" class="s-box"/>
+<text x="47" y="530" class="s-ts">MAVLink-клиент</text>
+</g>
+<g>
+<rect x="252" y="382" width="215" height="170" rx="12" class="s-ok"/>
+<text x="267" y="406" class="s-tb">Бортовой агент БПЛА 2</text>
+<text x="267" y="428" class="s-ts">та же логика</text>
+<rect x="267" y="510" width="185" height="30" rx="7" class="s-box"/>
+<text x="279" y="530" class="s-ts">MAVLink-клиент</text>
+</g>
+<g>
+<rect x="484" y="382" width="226" height="170" rx="12" class="s-ok"/>
+<text x="499" y="406" class="s-tb">Бортовой агент БПЛА N</text>
+<text x="499" y="428" class="s-ts">та же логика</text>
+<rect x="499" y="510" width="195" height="30" rx="7" class="s-box"/>
+<text x="511" y="530" class="s-ts">MAVLink-клиент</text>
+</g>
+<path d="M127 362 V380" class="s-ln" marker-end="url(#ar)"/>
+<path d="M359 362 V380" class="s-ln" marker-end="url(#ar)"/>
+<path d="M597 362 V380" class="s-ln" marker-end="url(#ar)"/>
+<!-- autopilot / sim -->
+<rect x="20" y="582" width="690" height="48" rx="10" class="s-box"/>
+<text x="35" y="603" class="s-tb">PX4 (автопилот) × N</text>
+<text x="35" y="620" class="s-ts">стабилизация, полёт к точке, посадка, аварийные режимы</text>
+<text x="420" y="603" class="s-tb">Gazebo</text>
+<text x="420" y="620" class="s-ts">физика, датчики, общий мир</text>
+<path d="M127 552 V580" class="s-ln" marker-end="url(#ar)"/>
+<path d="M359 552 V580" class="s-ln" marker-end="url(#ar)"/>
+<path d="M597 552 V580" class="s-ln" marker-end="url(#ar)"/>
+</svg>
+<figcaption>Рис. 1. Слои системы. Решения о распределении принимает координатор; полётом управляет PX4; бортовой агент между ними отвечает за безопасность и автономное поведение.</figcaption>
+</figure>
+<h3>Связь стека со слоями</h3>
+<div class="tbl"><table>
+<tr><th>Слой</th><th>Технология</th><th>Зачем</th></tr>
+<tr><td>Координатор</td><td>Python 3, NumPy; OR-Tools / PuLP для эталона</td><td>планирование и пересчёт</td></tr>
+<tr><td>Обмен агентов</td><td>UDP + JSON (вариант: ROS 2 / DDS)</td><td>сообщения STATE, ASSIGN, ACK, DONE, REJECT</td></tr>
+<tr><td>Бортовой агент</td><td>Python, pymavlink</td><td>исполнение, проверка заряда, правила при сбоях</td></tr>
+<tr><td>Автопилот</td><td>PX4 SITL</td><td>реальный полётный стек</td></tr>
+<tr><td>Физика</td><td>Gazebo Harmonic, модель x500</td><td>динамика, общий мир, столкновения</td></tr>
+<tr><td>Развёртывание</td><td>Docker: контейнер на каждый БПЛА</td><td>изоляция, повторяемость серий</td></tr>
+<tr><td>Данные</td><td>OpenStreetMap (Overpass), Open-Meteo</td><td>реальные опоры и ветер</td></tr>
+<tr><td>Быстрые серии</td><td>собственная 3D-модель квадрокоптера</td><td>сотни прогонов за минуты</td></tr>
+</table></div>
+
+<h2 id="agents">4. Агенты и их полномочия</h2>
+<div class="tbl"><table>
+<tr><th>Агент</th><th>Знает</th><th>Решает сам</th><th>Не решает</th></tr>
+<tr><td><strong>Координатор</strong></td><td>все БПЛА, все задачи, карту, ветер</td><td>кому какие задачи и в каком порядке; когда пересчитать</td><td>как лететь; рисковать ли конкретным бортом</td></tr>
+<tr><td><strong>Бортовой агент</strong></td><td>своё положение, заряд, исправность, план</td><td>принять или отклонить задачу; прервать при нехватке заряда; что делать без связи с центром</td><td>перераспределение задач между бортами</td></tr>
+<tr><td><strong>Агент миссии</strong></td><td>цели оператора</td><td>добавить задачу, изменить приоритет или срок</td><td>маршруты</td></tr>
+<tr><td><strong>PX4</strong> (не агент, исполнитель)</td><td>датчики</td><td>стабилизация, аварийная посадка</td><td>—</td></tr>
+</table></div>
+<h3>Правила бортового агента</h3>
+<ol>
+<li><strong>Перед каждой задачей:</strong> прогноз расхода на перелёт, облёт и возврат + резерв (например 20 %). Не хватает — <code>REJECT</code> с причиной, задача возвращается координатору.</li>
+<li><strong>Во время полёта:</strong> если фактический расход превышает прогноз на заданный порог — сообщить координатору (<code>STATE</code> с флагом), при критическом заряде — возврат без ожидания ответа.</li>
+<li><strong>Нет связи с центром дольше T:</strong> доделать текущую задачу, затем продолжать последний подтверждённый план, пока заряд выше порога возврата, затем вернуться.</li>
+<li><strong>Неисправность:</strong> сообщить и вернуться или сесть по правилам PX4.</li>
+</ol>
+<p class="muted">Важно: агент стоит на борту как бортовой компьютер, поэтому потеря связи с центром не равна потере связи автопилота с агентом. Аварийный режим PX4 при потере канала (параметр <code>NAV_DLL_ACT</code>) сам не сработает: поведение задаёт агент. Это тоже аргумент его автономности.</p>
+
+<h2 id="proto">5. Протокол и сценарий отказа</h2>
+<div class="tbl"><table>
+<tr><th>Сообщение</th><th>Кто → кому</th><th>Содержимое</th><th>Частота</th></tr>
+<tr><td><code>STATE</code></td><td>борт → центр</td><td>id, позиция, скорость, заряд, статус, текущая задача, версия плана</td><td>1–2 Гц</td></tr>
+<tr><td><code>ASSIGN</code></td><td>центр → борт</td><td>версия плана, упорядоченный список задач</td><td>при пересчёте</td></tr>
+<tr><td><code>ACK</code></td><td>борт → центр</td><td>принятая версия плана</td><td>на каждый ASSIGN</td></tr>
+<tr><td><code>DONE</code></td><td>борт → центр</td><td>id задачи, время, затраченный заряд</td><td>по событию</td></tr>
+<tr><td><code>REJECT</code></td><td>борт → центр</td><td>id задачи, причина (заряд, неисправность)</td><td>по событию</td></tr>
+<tr><td><code>TASK_NEW</code></td><td>миссия → центр</td><td>координаты, срок, приоритет</td><td>по событию</td></tr>
+</table></div>
+<p><strong>Версия плана</strong> нужна, чтобы борт не исполнял устаревший план после потери пакета: новый план принимается, только если его номер больше текущего.</p>
+<figure class="fig">
+<svg viewBox="0 0 720 470" role="img" aria-label="Диаграмма последовательности: отказ БПЛА 2 и перепланирование">
+<defs><marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor" style="color:var(--ink2)"/></marker></defs>
+<rect x="40" y="10" width="150" height="34" rx="8" class="s-acc"/><text x="62" y="32" class="s-tb">Координатор</text>
+<rect x="285" y="10" width="150" height="34" rx="8" class="s-ok"/><text x="320" y="32" class="s-tb">БПЛА 1</text>
+<rect x="530" y="10" width="150" height="34" rx="8" class="s-ok"/><text x="565" y="32" class="s-tb">БПЛА 2</text>
+<path d="M115 44 V460" class="s-lnd"/><path d="M360 44 V460" class="s-lnd"/><path d="M605 44 V250" class="s-lnd"/>
+<path d="M115 70 H358" class="s-ln" marker-end="url(#ar2)"/><text x="130" y="64" class="s-ts">ASSIGN v1: [3, 7, 9]</text>
+<path d="M115 96 H603" class="s-ln" marker-end="url(#ar2)"/><text x="380" y="90" class="s-ts">ASSIGN v1: [2, 5, 8]</text>
+<path d="M358 122 H117" class="s-ln" marker-end="url(#ar2)"/><text x="200" y="116" class="s-ts">ACK v1</text>
+<path d="M603 140 H117" class="s-ln" marker-end="url(#ar2)"/><text x="400" y="134" class="s-ts">ACK v1</text>
+<path d="M603 170 H117" class="s-ln" marker-end="url(#ar2)"/><text x="400" y="164" class="s-ts">STATE (каждые 0,5 с)</text>
+<path d="M603 196 H117" class="s-ln" marker-end="url(#ar2)"/><text x="400" y="190" class="s-ts">DONE задача 2</text>
+<path d="M585 230 L625 270 M625 230 L585 270" class="s-bad"/><text x="560" y="292" class="s-tbad">отказ</text>
+<rect x="20" y="300" width="190" height="62" rx="8" class="s-warn"/>
+<text x="30" y="320" class="s-t">нет STATE &gt; 3 с</text>
+<text x="30" y="338" class="s-ts">БПЛА 2 отказал; задачи 5, 8</text>
+<text x="30" y="354" class="s-ts">вернулись в пул; пересчёт</text>
+<path d="M115 390 H358" class="s-ln" marker-end="url(#ar2)"/><text x="130" y="384" class="s-ts">ASSIGN v2: [7, 5, 9, 8]</text>
+<path d="M358 416 H117" class="s-ln" marker-end="url(#ar2)"/><text x="200" y="410" class="s-ts">ACK v2</text>
+<path d="M358 446 H117" class="s-ln" marker-end="url(#ar2)"/><text x="160" y="440" class="s-ts">REJECT 8: не хватит заряда → снова пересчёт</text>
+</svg>
+<figcaption>Рис. 2. Отказ БПЛА 2: координатор замечает тишину, возвращает его задачи в пул и пересчитывает план. БПЛА 1 вправе отказаться от задачи, если на неё не хватит заряда.</figcaption>
+</figure>
+
+<h2 id="model">6. Математическая постановка</h2>
+<p>Задача: распределить точки осмотра между БПЛА и построить каждому маршрут с учётом заряда. Это вариант задачи маршрутизации транспорта (VRP) с ограничением по энергии. Если ресурса на все задачи может не хватить, это командная задача ориентирования (Team Orienteering Problem, TOP; Chao, Golden, Wasil, 1996).</p>
+<h3>Обозначения</h3>
+<ul>
+<li><span class="f">K = {1,…,N}</span> — БПЛА; <span class="f">B<sub>k</sub></span> — доступный заряд, <span class="f">R<sub>k</sub></span> — обязательный резерв.</li>
+<li><span class="f">T = {1,…,M}</span> — задачи (опоры); <span class="f">s<sub>i</sub></span> — время облёта, <span class="f">w<sub>i</sub></span> — приоритет.</li>
+<li><span class="f">0</span> — база (старт и возврат).</li>
+<li><span class="f">t<sub>ij</sub></span>, <span class="f">e<sub>ij</sub></span> — время и энергия перелёта <span class="f">i → j</span> с учётом ветра (меняются от направления).</li>
+<li><span class="f">e<sub>i</sub><sup>s</sup></span> — энергия облёта задачи <span class="f">i</span>.</li>
+</ul>
+<h3>Переменные</h3>
+<ul>
+<li><span class="f">x<sub>ijk</sub> ∈ {0,1}</span> — БПЛА <span class="f">k</span> летит из <span class="f">i</span> в <span class="f">j</span>.</li>
+<li><span class="f">y<sub>ik</sub> ∈ {0,1}</span> — задачу <span class="f">i</span> выполняет БПЛА <span class="f">k</span>.</li>
+<li><span class="f">u<sub>ik</sub></span> — порядковый номер задачи в маршруте (против подциклов).</li>
+<li><span class="f">C</span> — время завершения миссии (makespan).</li>
+</ul>
+<h3>Целевая функция (выбрать одну)</h3>
+<div class="formula">
+(А) мин. время миссии: &nbsp; min C<br>
+(Б) мин. энергия: &nbsp; min Σ<sub>k</sub> Σ<sub>i,j</sub> e<sub>ij</sub> x<sub>ijk</sub><br>
+(В) макс. выполненное при нехватке ресурса (TOP): &nbsp; max Σ<sub>k</sub> Σ<sub>i</sub> w<sub>i</sub> y<sub>ik</sub>
+</div>
+<p class="muted">Рекомендация: основная — (В) с весами как «доля задач», вторичная — время. При отказах ресурса может не хватить на всё, и (В) это корректно описывает. Если ресурса гарантированно хватает, (В) вырождается в «выполнить всё», и тогда смотрим время.</p>
+<h3>Ограничения</h3>
+<div class="formula">
+(1) каждая задача не более одного раза: &nbsp; Σ<sub>k</sub> y<sub>ik</sub> ≤ 1 &nbsp; ∀i ∈ T<br>
+(2) поток: &nbsp; Σ<sub>j</sub> x<sub>ijk</sub> = Σ<sub>j</sub> x<sub>jik</sub> = y<sub>ik</sub> &nbsp; ∀i ∈ T, k ∈ K<br>
+(3) старт и возврат: &nbsp; Σ<sub>j</sub> x<sub>0jk</sub> = Σ<sub>j</sub> x<sub>j0k</sub> ≤ 1 &nbsp; ∀k<br>
+(4) энергия: &nbsp; Σ<sub>i,j</sub> e<sub>ij</sub> x<sub>ijk</sub> + Σ<sub>i</sub> e<sub>i</sub><sup>s</sup> y<sub>ik</sub> ≤ B<sub>k</sub> − R<sub>k</sub> &nbsp; ∀k<br>
+(5) время миссии: &nbsp; Σ<sub>i,j</sub> t<sub>ij</sub> x<sub>ijk</sub> + Σ<sub>i</sub> s<sub>i</sub> y<sub>ik</sub> ≤ C &nbsp; ∀k<br>
+(6) нет подциклов (MTZ): &nbsp; u<sub>ik</sub> − u<sub>jk</sub> + M·x<sub>ijk</sub> ≤ M − 1 &nbsp; ∀i ≠ j ∈ T, k
+</div>
+<p><strong>Сложность:</strong> задача NP-трудная (обобщает задачу коммивояжёра). Точно решается только на малых размерах (единицы БПЛА, 10–15 задач) — это и будет эталон для проверки эвристики. В классификации Gerkey &amp; Matarić (2004) это класс <strong>ST-SR-TA</strong>: каждый БПЛА выполняет одну задачу за раз (ST), задаче нужен один БПЛА (SR), назначение расширено во времени — строится последовательность (TA).</p>
+<h3>Динамика</h3>
+<p>При событии решается та же задача, но для остатка: <span class="f">B<sub>k</sub></span> — текущий заряд, старт — текущая позиция (или точка текущей задачи, если борт уже её выполняет), <span class="f">T</span> — невыполненные задачи, <span class="f">K</span> — исправные борта.</p>
+
+<h2 id="algo">7. Алгоритм</h2>
+<h3>7.1. Начальный план: жадная вставка</h3>
+<p>Основа — эвристика вставки (Solomon, 1987). Она уже реализована в прототипе (<code>central.py</code>).</p>
+<pre><code>пока есть нераспределённые задачи:
+    для каждой задачи j, каждого БПЛА k, каждой позиции p в маршруте k:
+        если вставка j в позицию p не нарушает заряд B_k − R_k:
+            прирост = цель(маршрут с j) − цель(маршрут без j)
+    взять пару (j, k, p) с лучшим приростом и вставить
+    если ни одна вставка невозможна — стоп (остаток не выполним)</code></pre>
+<p>Сложность одного шага <span class="f">O(M · N · L)</span>, где L — длина маршрута. Для 4–15 БПЛА и десятков задач это миллисекунды.</p>
+<h3>7.2. Улучшение: локальный поиск</h3>
+<ul>
+<li><strong>Relocate</strong> — перенести задачу в другой маршрут (уже есть).</li>
+<li><strong>Swap</strong> — обменять задачи между двумя БПЛА.</li>
+<li><strong>2-opt</strong> внутри маршрута — развернуть отрезок, убрать самопересечения (Croes, 1958).</li>
+<li><strong>Вставка невыполненных</strong> — после улучшений снова попытаться вставить отброшенные задачи.</li>
+</ul>
+<p>Повторять, пока есть улучшение или не кончился лимит времени (например 200 мс). Это делает алгоритм «anytime»: в любой момент есть допустимый план, и он только улучшается.</p>
+<p class="muted">Развитие, если останется время: адаптивный поиск с большой окрестностью (ALNS; Ropke &amp; Pisinger, 2006) — разрушить часть плана и собрать заново.</p>
+<h3>7.3. Перепланирование по событиям</h3>
+<div class="tbl"><table>
+<tr><th>Событие</th><th>Как обнаруживается</th><th>Реакция</th></tr>
+<tr><td>Отказ БПЛА</td><td>нет STATE дольше таймаута (3–6 с)</td><td>его невыполненные задачи — в пул, пересчёт</td></tr>
+<tr><td>Перерасход заряда</td><td>факт отличается от прогноза больше порога</td><td>уточнить модель, пересчёт</td></tr>
+<tr><td>Отказ от задачи</td><td>REJECT</td><td>запретить пару (задача, БПЛА), пересчёт</td></tr>
+<tr><td>Новая задача</td><td>TASK_NEW</td><td>вставка без полного пересчёта, затем улучшение</td></tr>
+<tr><td>Задача выполнена</td><td>DONE</td><td>обновить модель мира, пересчёт не обязателен</td></tr>
+</table></div>
+<p><strong>Правила пересчёта:</strong> задачу, к которой борт уже летит, не отбираем (иначе метания); новый план отправляется с увеличенной версией; борт подтверждает ACK; без подтверждения — повтор.</p>
+<h3>7.4. Эталон и проверка</h3>
+<p>На малых примерах (2–4 БПЛА, 8–15 задач) решаем постановку из раздела 6 точно (MILP через PuLP/CBC или маршрутизатор OR-Tools) и сравниваем с эвристикой: разрыв в процентах и время счёта. Это отвечает на вопрос «насколько хорош ваш алгоритм».</p>
+
+<h2 id="energy">8. Модель энергии</h2>
+<p>Прогноз расхода нужен и планировщику (ограничение 4), и бортовому агенту (решение об отказе).</p>
+<ul>
+<li><strong>Висение</strong> по теории импульса: <span class="f">P<sub>hover</sub> = (mg)<sup>3/2</sup> / √(2ρA)</span> / η, где m — масса, ρ — плотность воздуха, A — площадь дисков винтов, η — КПД (параметр).</li>
+<li><strong>Горизонтальный полёт</strong>: мощность зависит от воздушной скорости; ветер меняет путевую скорость, а значит время и энергию перелёта, причём по-разному «туда» и «обратно». Для многороторных БПЛА есть готовые аналитические модели (например, в работах по энергоэффективным траекториям, Zeng и др., 2019).</li>
+<li><strong>Уточнение:</strong> коэффициент <span class="f">c<sub>k</sub> = факт / прогноз</span> для каждого борта по завершённым участкам (скользящее среднее). Следующие пересчёты используют <span class="f">c<sub>k</sub> · прогноз</span>.</li>
+</ul>
+<div class="card risk"><strong>Честно о данных:</strong> в PX4 SITL имитация батареи не отражает реальную нагрузку (в моих полётах заряд опускался примерно до 51 % и дальше не менялся), поэтому энергию считаю по своей модели. Параметры аппарата пока принятые, не откалиброванные по реальным журналам полётов.</div>
+
+<h2 id="theory">9. Теория для ответов на вопросы</h2>
+<details open><summary>Классы задач распределения (Gerkey &amp; Matarić, 2004)</summary>
+<ul>
+<li><strong>ST / MT</strong> — робот делает одну задачу за раз или несколько одновременно.</li>
+<li><strong>SR / MR</strong> — задаче нужен один робот или несколько (коалиция).</li>
+<li><strong>IA / TA</strong> — мгновенное назначение или расширенное во времени (план-последовательность).</li>
+</ul>
+<p>Мой случай — ST-SR-TA. ST-SR-IA решается венгерским алгоритмом за полиномиальное время (Kuhn, 1955); ST-SR-TA — NP-трудная, отсюда эвристики. Если груз требует нескольких БПЛА — уже MR, это другая и более сложная задача.</p>
+</details>
+<details><summary>Централизация против децентрализации</summary>
+<div class="tbl"><table>
+<tr><th></th><th>Центр</th><th>Децентрализация (аукцион, CBBA)</th></tr>
+<tr><td>Информация</td><td>полная</td><td>локальная + от соседей</td></tr>
+<tr><td>Качество плана</td><td>выше, можно оптимизировать глобально</td><td>ниже; CBBA сходится к жадному решению, гарантия ≥ 50 % оптимума при убывающих приростах</td></tr>
+<tr><td>Сообщения</td><td>мало, но все через центр</td><td>много: у меня 307 / 1467 / 3916 на 5 / 10 / 15 БПЛА</td></tr>
+<tr><td>Единая точка отказа</td><td>да</td><td>нет</td></tr>
+<tr><td>Масштабирование</td><td>ограничено расчётом и каналом центра</td><td>ограничено объёмом обмена</td></tr>
+</table></div>
+<p>Вывод для работы: при группе в единицы–десятки БПЛА и устойчивой связи центр выгоднее; слабое место — потеря центра, его закрываем правилами бортовых агентов и (опционально) резервным координатором.</p>
+</details>
+<details><summary>Contract Net Protocol (Smith, 1980)</summary>
+<p>Менеджер объявляет задачу, исполнители подают предложения, менеджер выбирает и заключает «контракт», исполнитель может отказаться. Моя схема — упрощённый вариант: координатор сам рассчитывает назначение (так как знает состояния всех), а бортовые агенты сохраняют право отказа (<code>REJECT</code>). Это аргумент, что взаимодействие агентное, а не командное.</p>
+</details>
+<details><summary>Почему эвристика, а не точный решатель</summary>
+<ul>
+<li>Задача NP-трудная: время точного решения растёт экспоненциально.</li>
+<li>Пересчёт должен укладываться в доли секунды, пока дроны летят.</li>
+<li>Вставка + локальный поиск — стандарт для VRP-подобных задач; качество проверяется против точного решения на малых примерах.</li>
+</ul>
+</details>
+<details><summary>Устойчивость централизованной системы</summary>
+<ul>
+<li><strong>Отказ БПЛА</strong> — обнаружение по таймауту, перепланирование (основной сценарий работы).</li>
+<li><strong>Потеря связи с отдельным бортом</strong> — борт продолжает последний подтверждённый план; центр не отдаёт его задачи сразу, а ждёт дольше (иначе задвоение).</li>
+<li><strong>Потеря центра</strong> — борта продолжают план по своим правилам. Резервный координатор — возможное расширение, но при разрыве сети на части он не решает проблему (для выбора лидера по протоколам вроде Raft нужно большинство).</li>
+</ul>
+</details>
+<details><summary>Как связан мой прошлый прототип с CBBA</summary>
+<p>Я реализовал децентрализованный CBBA (Choi, Brunet, How, 2009) и сравнил его с центром на 3D-модели и в PX4. Результат: при живом центре CBBA не лучше и тратит больше времени и сообщений; выигрывает только при потере центра. Это и обосновывает выбор централизованной архитектуры — в работе это раздел «обоснование выбора подхода».</p>
+</details>
+
+<h2 id="exp">10. Эксперимент: было / стало</h2>
+<div class="card ok">
+<p><strong>Вариант цели:</strong> «Повышение доли выполненных задач и сокращение времени миссии группы БПЛА при отказах аппаратов за счёт централизованного перепланирования с учётом энергии».</p>
+<p><strong>Метрика:</strong> доля выполненных задач (основная), время миссии и энергия (вторичные).</p>
+</div>
+<div class="tbl"><table>
+<tr><th>Вариант</th><th>Что это</th><th>Роль</th></tr>
+<tr><td>Б1. Статический план</td><td>план строится один раз, без пересчёта</td><td>«было» — как без системы</td></tr>
+<tr><td>Б2. Диспетчер «ближайшая свободная задача»</td><td>освободившийся борт берёт ближайшую задачу</td><td>«было» — простое правило</td></tr>
+<tr><td>Б3. Ручное разбиение по зонам</td><td>каждому борту свой сектор</td><td>«было» — практика оператора</td></tr>
+<tr><td><strong>С. Мой координатор</strong></td><td>вставка + локальный поиск + перепланирование + уточнение энергии</td><td>«стало»</td></tr>
+<tr><td>Эталон (MILP)</td><td>точное решение, только малые примеры</td><td>оценка качества</td></tr>
+<tr><td>CBBA (уже есть)</td><td>децентрализованный аукцион</td><td>обоснование выбора</td></tr>
+</table></div>
+<h3>Сценарии</h3>
+<ul>
+<li>Без отказов; отказ 1 борта в случайный момент; перерасход заряда (ветер); новые задачи в полёте; потеря связи с центром.</li>
+<li>4–15 БПЛА, реальные опоры из OSM, ветер из Open-Meteo.</li>
+<li>Парные прогоны: все варианты на одних и тех же сценариях и отказах; 100 прогонов на сценарий на быстрой модели, контрольная серия в PX4 + Gazebo.</li>
+<li>Доверительные интервалы бутстрепом по парным разностям.</li>
+</ul>
+<p class="muted">Числа «было / стало» для слайда появятся после серий. Сейчас их нет — не выдумывать.</p>
+
+<h2 id="done">11. Что уже сделано</h2>
+<div class="tbl"><table>
+<tr><th>Что</th><th>Состояние</th></tr>
+<tr><td>Данные: 89 опор ЛЭП из OSM, ветер Open-Meteo</td><td>✓ готово</td></tr>
+<tr><td>Жадная вставка + перенос задач (<code>central.py</code>)</td><td>✓ есть, нужен 2-opt и swap</td></tr>
+<tr><td>3D-модель квадрокоптера (6 степеней свободы, каскадный регулятор)</td><td>✓ серии по 100 прогонов</td></tr>
+<tr><td>PX4 + Gazebo в Docker, 4 дрона, агенты через MAVLink</td><td>✓ работает; общий мир снят на видео</td></tr>
+<tr><td>CBBA и сравнение с центром</td><td>✓ результаты есть</td></tr>
+<tr><td>Координатор с перепланированием по событиям</td><td>в плане</td></tr>
+<tr><td>Эталон MILP / OR-Tools</td><td>в плане</td></tr>
+<tr><td>Модель энергии с уточнением</td><td>частично (модель без калибровки)</td></tr>
+<tr><td>Ветер в Gazebo</td><td>не работает: в мире windy.sdf модель x500 ветер не учитывает</td></tr>
+</table></div>
+
+<h2 id="code">12. Стек и план кода</h2>
+<pre><code>uav_mas/
+  core/
+    model.py        # задачи, БПЛА, состояния, план (dataclasses)
+    energy.py       # прогноз расхода, уточнение c_k
+    planner.py      # вставка, relocate, swap, 2-opt, лимит времени
+    exact.py        # MILP-эталон (PuLP / OR-Tools)
+  agents/
+    coordinator.py  # монитор событий, пересчёт, версии плана
+    onboard.py      # исполнитель: MAVLink, проверка заряда, REJECT, правила
+    mission.py      # новые задачи, приоритеты
+  comm/
+    protocol.py     # STATE, ASSIGN, ACK, DONE, REJECT (JSON)
+  sim/
+    fastsim.py      # быстрая 3D-модель для серий
+    px4_runner.py   # контейнеры PX4 + Gazebo
+  baselines/        # статический план, диспетчер, зоны
+  experiments/      # серии, бутстреп, графики
+  tests/</code></pre>
+<h3>Порядок работ</h3>
+<ol>
+<li><strong>Неделя 1.</strong> Модель данных, планировщик (вставка + relocate + swap + 2-opt), тесты. MILP-эталон, сравнение на 50 малых примерах.</li>
+<li><strong>Неделя 2.</strong> Координатор и бортовой агент на быстрой модели: события, перепланирование, отказ от задач. Базы Б1–Б3.</li>
+<li><strong>Неделя 3.</strong> Серии по 100 прогонов, графики, «было / стало».</li>
+<li><strong>Неделя 4.</strong> Перенос в PX4 + Gazebo, контрольная серия, видео для защиты.</li>
+<li><strong>Далее.</strong> Модель энергии с уточнением, текст ВКР, презентация.</li>
+</ol>
+<p class="muted">Большая часть уже готового кода переиспользуется: <code>central.py</code>, агенты в <code>prototype_px4</code>, 3D-модель <code>prototype_v3</code>, данные OSM и ветра.</p>
+
+<h2 id="questions">13. Вопросы руководителю</h2>
+<ol>
+<li>Согласны с формулировкой «централизованное распределение, автономное исполнение агентов» как мультиагентной архитектурой?</li>
+<li>Какую цель берём: доля выполненных задач при отказах, время миссии или энергия? Что считаем «было» — статический план, диспетчер или разбиение по зонам?</li>
+<li>Сценарий: осмотр опор ЛЭП или доставка? Есть ли реальный заказчик для бизнес-задач?</li>
+<li>Нужен ли ROS 2, или достаточно PX4 + Gazebo + MAVLink + собственный протокол?</li>
+<li>Исследовать ли поведение при потере центра, или достаточно его описать?</li>
+<li>Достаточно ли эвристики с проверкой против MILP, или нужен более сильный метаэвристический алгоритм?</li>
+<li>Где взять реальные журналы полётов для калибровки энергии?</li>
+<li>Какая конференция для апробации и когда согласовать презентацию?</li>
+</ol>
+
+<h2 id="qa">14. Каверзные вопросы и ответы</h2>
+<details><summary>«Если всё решает центр, где тут мультиагентность?»</summary>
+<p>Агенты автономны в исполнении: бортовой агент сам решает, безопасно ли брать задачу, может отказаться, сам реагирует на заряд, сбои и потерю связи. Координатор — тоже агент со своей целью. Мультиагентность определяется свойствами агентов и их взаимодействием, а не отсутствием центра (Wooldridge &amp; Jennings, 1995).</p>
+</details>
+<details><summary>«А если центр упадёт?»</summary>
+<p>Борта продолжают последний подтверждённый план по своим правилам и возвращаются при пороговом заряде. В прототипе я измерял: без перепланирования при потере центра и отказе борта выполняется около 93 % задач. Резервный координатор — возможное расширение.</p>
+</details>
+<details><summary>«Почему не децентрализованный CBBA?»</summary>
+<p>Я его реализовал и сравнил: при работающем центре он не лучше (98,5 % против 97,6 % задач при отказе борта) и тратит больше времени и сообщений. Это совпадает с литературой (Cong и др., 2026; Song и др., 2025).</p>
+</details>
+<details><summary>«Насколько хорош ваш алгоритм?»</summary>
+<p>Сравниваю с точным решением на малых примерах: разрыв в процентах и время счёта. На больших — с базовыми вариантами Б1–Б3.</p>
+</details>
+<details><summary>«Где реальные данные?»</summary>
+<p>Опоры — из OpenStreetMap, ветер — из Open-Meteo, полётный стек — настоящий PX4. Ограничение: энергия считается по модели, калибровка по реальным полётам пока не сделана.</p>
+</details>
+<details><summary>«Почему Python, а не C++?»</summary>
+<p>Планирование — не задача жёсткого реального времени: пересчёт в пределах сотен миллисекунд достаточен. Управление полётом остаётся на PX4 (C++).</p>
+</details>
+
+<h2 id="refs">15. Источники</h2>
+<p class="muted">Метки: <span class="tag">прочитано</span> — читал текст; <span class="tag">классика</span> — общеизвестная работа, текст здесь не перечитывал; <span class="tag">аннотация</span> — только аннотация или пересказ.</p>
+<ol>
+<li>Wooldridge M., Jennings N. Intelligent agents: theory and practice // Knowledge Engineering Review, 1995, 10(2). <span class="tag">классика</span></li>
+<li>Smith R. G. The Contract Net Protocol // IEEE Transactions on Computers, 1980, C-29(12). <span class="tag">классика</span></li>
+<li>Gerkey B., Matarić M. A formal analysis and taxonomy of task allocation in multi-robot systems // IJRR, 2004, 23(9): 939–954. <span class="tag">прочитано</span></li>
+<li>Chao I.-M., Golden B., Wasil E. The team orienteering problem // EJOR, 1996, 88(3). <span class="tag">классика</span></li>
+<li>Solomon M. Algorithms for the vehicle routing and scheduling problems with time window constraints // Operations Research, 1987, 35(2). <span class="tag">классика</span></li>
+<li>Croes G. A. A method for solving traveling-salesman problems // Operations Research, 1958, 6(6). <span class="tag">классика</span></li>
+<li>Ropke S., Pisinger D. An adaptive large neighborhood search heuristic for the pickup and delivery problem with time windows // Transportation Science, 2006, 40(4). <span class="tag">классика</span></li>
+<li>Kuhn H. The Hungarian method for the assignment problem // Naval Research Logistics Quarterly, 1955. <span class="tag">классика</span></li>
+<li>Choi H.-L., Brunet L., How J. Consensus-based decentralized auctions for robust task allocation // IEEE T-RO, 2009, 25(4): 912–926. <a href="https://dspace.mit.edu/handle/1721.1/52330">dspace.mit.edu</a> <span class="tag">аннотация</span></li>
+<li>Buckman N., How J., Choi H.-L. Partial replanning for decentralized dynamic task allocation (CBBA-PR) // AIAA, 2019. <a href="https://people.csail.mit.edu/nbuckman/pdfs/aiaa2019.pdf">pdf</a> <span class="tag">прочитано</span></li>
+<li>Cong Y., Li Y., Zhu X., Wang Z. An event-triggered path-based bid assignment method for energy-aware dynamic multi-UAV task allocation // Drones, 2026, 10, 684. <a href="https://doi.org/10.3390/drones10090684">doi</a> <span class="tag">прочитано</span> (с. 1–14)</li>
+<li>Song и др. Comparative analysis of centralized and distributed multi-UAV task allocation algorithms: a unified evaluation framework // Drones, 2025, 9, 530. <a href="https://www.mdpi.com/2504-446X/9/8/530">mdpi</a> <span class="tag">прочитано</span> (с. 10–25; в тексте есть расхождения с таблицами — цитировать таблицы)</li>
+<li>Skaltsis G., Shin H.-S., Tsourdos A. A review of task allocation methods for UAVs // J. Intell. Robot. Syst., 2023, 109: 76. <a href="https://link.springer.com/article/10.1007/s10846-023-02011-0">springer</a> <span class="tag">аннотация</span></li>
+<li>Zeng Y., Xu J., Zhang R. Energy minimization for wireless communication with rotary-wing UAV // IEEE Trans. Wireless Commun., 2019. <span class="tag">классика</span> — модель мощности многороторного БПЛА</li>
+<li>PX4: безопасность и аварийные режимы. <a href="https://docs.px4.io/main/en/config/safety.html">docs.px4.io</a></li>
+<li>Распоряжение Правительства РФ от 21.06.2023 № 1630-р (Стратегия развития беспилотной авиации до 2030 г.) — для актуальности.</li>
+</ol>
+<p class="muted">Перед цитированием в тексте ВКР сверьте выходные данные «классики» и откройте полные тексты Choi 2009 и Skaltsis 2023.</p>
+</main>
+<button class="theme" id="tt" type="button" aria-label="Сменить тему">◐ тема</button>
+<script>
+(function(){var r=document.documentElement,b=document.getElementById('tt');
+try{var s=localStorage.getItem('theme');if(s)r.setAttribute('data-theme',s);}catch(e){}
+b.addEventListener('click',function(){var d=r.getAttribute('data-theme');
+var dark=d?d==='dark':matchMedia('(prefers-color-scheme: dark)').matches;var n=dark?'light':'dark';
+r.setAttribute('data-theme',n);try{localStorage.setItem('theme',n);}catch(e){}});})();
+</script>
+</body>
+</html>
